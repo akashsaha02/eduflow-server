@@ -25,198 +25,398 @@ const client = new MongoClient(uri, {
 });
 
 async function run() {
-    try {
-      console.log("MongoDB connected");
-  
-      const database = client.db("academixDb");
-      const userCollection = database.collection("users");
-      const classCollection = database.collection("classes");
-      const teacherCollection = database.collection("teachers");
-      const paymentsCollection = database.collection("payments");
-  
-  
-      // jwt api
-  
-      app.post('/jwt', async (req, res) => {
-        const user = req.body;
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
-        res.send({ token })
-      });
-  
-      // middlewares
-      const verifyToken = (req, res, next) => {
-        // console.log(req.headers.authorization)
-        if (!req.headers.authorization) {
-          return res.status(401).send({ message: 'Unauthorized request' });
-        }
-  
-        const token = req.headers.authorization.split(' ')[1];
-        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-          if (err) {
-            return res.status(403).send({ message: 'Forbidden request' });
-          }
-          req.decoded = decoded;
-          next();
-        });
+  try {
+    console.log("MongoDB connected");
+
+    const database = client.db("academixDb");
+    const userCollection = database.collection("users");
+    const classesCollection = database.collection('classes');
+    const teacherRequestsCollection = database.collection("teacherRequests");
+    const paymentsCollection = database.collection("payments");
+
+
+    // jwt api
+
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      res.send({ token })
+    });
+
+    // middlewares
+    const verifyToken = (req, res, next) => {
+      // console.log(req.headers.authorization)
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'Unauthorized request' });
       }
-  
-      const verifyAdmin = async (req, res, next) => {
-        const email = req.decoded.email;
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        const isAdmin = user.role === 'admin';
-        if (!isAdmin) {
+
+      const token = req.headers.authorization.split(' ')[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
           return res.status(403).send({ message: 'Forbidden request' });
         }
+        req.decoded = decoded;
         next();
-      }
-  
-      // User Collection
-  
-      app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
-        const users = await userCollection.find().toArray();
-        res.send(users);
       });
-  
-      app.get('/users/admin/:email', verifyToken, async (req, res) => {
-        const email = req.params.email;
-        if (email !== req.decoded.email) {
-          return res.status(403).send({ message: 'Forbidden request' });
-        }
-        const query = { email: email };
-        const user = await userCollection.findOne(query);
-        let isAdmin = false;
-        if (user.role === 'admin') {
-          isAdmin = true;
-        }
-        res.send(isAdmin);
-      });
-  
-  
-      app.post('/users', async (req, res) => {
-        const user = req.body;
-        const query = { email: user.email };
-        const existingUser = await userCollection.findOne(query);
-        if (existingUser) {
-          res.send({ message: 'User already exists', insertedId: existingUser._id });
-          return;
-        }
-  
-        // Set default role to "normal" if not provided
-        user.role = user.role || 'normal';
-  
-        const result = await userCollection.insertOne(user);
-        res.json(result);
-      });
-  
-      // Update User Role
-      app.patch('/users/role/:id', verifyToken, verifyAdmin, async (req, res) => {
-        const id = req.params.id;
-        const { role } = req.body; // Expecting role: 'admin', 'premium', or 'normal'
-        const filter = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: { role },
-        };
-        const result = await userCollection.updateOne(filter, updateDoc);
-        res.json(result);
-      });
-  
-  
-      app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await userCollection.deleteOne(query);
-        res.json(result);
-      });
-  
-  
-      // Payment Routes
-  
-      app.post("/create-payment-intent", verifyToken, async (req, res) => {
-        const { price } = req.body;
-        console.log(price);
-        // const amount = price * 100;
-        // const amount = price * 100;
-  
-        // Create a PaymentIntent with the order amount and currency
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: price,
-          currency: "usd",
-          // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
-          automatic_payment_methods: {
-            enabled: true,
-          },
-        });
-  
-        res.send({
-          clientSecret: paymentIntent.client_secret,
-        });
-      });
-  
-      // Payment Routes end
-  
-      //Payment collection
-  
-      app.post('/payments', verifyToken, async (req, res) => {
-        const payment = req.body;
-        const result = await paymentsCollection.insertOne(payment);
-  
-        const query = {
-          _id: {
-            $in: payment.cartItemIds.map((id) => new ObjectId(id))
-          }
-        }
-        const deleteResult = await cartsCollection.deleteMany(query);
-        res.json({ result, deleteResult });
-      });
-  
-      app.get('/payments/:email', verifyToken, async (req, res) => {
-  
-        const query = { email: req.params.email }
-        if (req.params.email !== req.decoded.email) {
-          return res.status(403).send({ message: 'Forbidden request' });
-        }
-        const payments = await paymentsCollection.find(query).toArray();
-        res.send(payments);
-      });
-  
-  
-      app.get('/payments', verifyToken, verifyAdmin, async (req, res) => {
-        const payments = await paymentsCollection.find().toArray();
-        res.send(payments);
-      });
-  
-      app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
-        const id = req.params.id;
-        const payment = req.body;
-        const query = { _id: new ObjectId(id) };
-        const updateDoc = {
-          $set: payment,
-        };
-        const result = await paymentsCollection.updateOne(query, updateDoc);
-        res.json(result);
-      });
-  
-  
-  
-  
-  
-  // <-------------------------- see temp code -------------------------------->
-  
-    } finally {
-      // Ensures that the client will close when you finish/error
-      // await client.close();
     }
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'Forbidden request' });
+      }
+      next();
+    }
+
+    // User Collection
+
+    app.get('/users', verifyToken, async (req, res) => {
+      const users = await userCollection.find().toArray();
+      res.send(users);
+    });
+
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'Forbidden request' });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let isAdmin = false;
+      if (user.role === 'admin') {
+        isAdmin = true;
+      }
+      res.send(isAdmin);
+    });
+
+    app.get('/users/teacher/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'Forbidden request' });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let isTeacher = false;
+      if (user.role === 'teacher') {
+        isTeacher = true;
+      }
+      res.send(isTeacher);
+    });
+
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        res.send({ message: 'User already exists', insertedId: existingUser._id });
+        return;
+      }
+
+      // Set default role to "normal" if not provided
+      user.role = user.role || 'normal';
+
+      const result = await userCollection.insertOne(user);
+      res.json(result);
+    });
+
+    // Update User Role
+    app.patch('/users/role/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body; // Expecting role: 'admin', 'premium', or 'normal'
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { role },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.json(result);
+    });
+
+
+    app.delete('/users/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.json(result);
+    });
+
+
+    // Payment Routes
+
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { price } = req.body;
+      console.log(price);
+      // const amount = price * 100;
+      // const amount = price * 100;
+
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: price,
+        currency: "usd",
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // Payment Routes end
+
+    //Payment collection
+
+    app.post('/payments', verifyToken, async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+
+      const query = {
+        _id: {
+          $in: payment.cartItemIds.map((id) => new ObjectId(id))
+        }
+      }
+      const deleteResult = await cartsCollection.deleteMany(query);
+      res.json({ result, deleteResult });
+    });
+
+    app.get('/payments/:email', verifyToken, async (req, res) => {
+
+      const query = { email: req.params.email }
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: 'Forbidden request' });
+      }
+      const payments = await paymentsCollection.find(query).toArray();
+      res.send(payments);
+    });
+
+
+    app.get('/payments', verifyToken, verifyAdmin, async (req, res) => {
+      const payments = await paymentsCollection.find().toArray();
+      res.send(payments);
+    });
+
+    app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const payment = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: payment,
+      };
+      const result = await paymentsCollection.updateOne(query, updateDoc);
+      res.json(result);
+    });
+
+
+
+
+    // Classes Collection
+    app.post('/api/classes', async (req, res) => {
+      try {
+        const { title, name, email, price, description, image } = req.body;
+
+        if (!title || !name || !email || !price || !description || !image) {
+          return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        const newClass = {
+          title,
+          name,
+          email,
+          price: parseFloat(price),
+          description,
+          image,
+          status: 'pending', // Default status
+          createdAt: new Date(),
+        };
+
+        const result = await classesCollection.insertOne(newClass);
+
+        res.status(201).json({
+          message: 'Class added successfully',
+          classId: result.insertedId,
+        });
+      } catch (error) {
+        console.error('Error adding class:', error);
+        res.status(500).json({ message: 'Failed to add class. Please try again.' });
+      }
+    });
+
+    // Fetch all approved classes
+    app.get('/api/classes', async (req, res) => {
+      try {
+        const approvedClasses = await classesCollection.find({ status: 'approved' }).toArray();
+        res.status(200).json(approvedClasses);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+        res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+      }
+    });
+
+    // Admin: Approve class
+    app.patch('/api/classes/approve/:id', verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const updateResult = await classesCollection.updateOne(
+          { _id: new ObjectId(classId) },
+          { $set: { status: 'approved' } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Class not found' });
+        }
+
+        res.json({ message: 'Class approved successfully' });
+      } catch (error) {
+        console.error('Error approving class:', error);
+        res.status(500).json({ message: 'Failed to approve class. Please try again.' });
+      }
+    });
+
+
+
+
+
+    // teacher request collection
+    // 1. Submit Teacher Request
+    app.post("/api/teacher-requests", async (req, res) => {
+      try {
+        const { name, email, image, title, experience, category } = req.body;
+
+        // Check if all required fields are present
+        if (!name || !email || !image || !title || !experience || !category) {
+          return res.status(400).json({ message: "All fields are required" });
+        }
+
+        // Check if a request already exists for the user
+        const existingRequest = await teacherRequestsCollection.findOne({ email });
+        if (existingRequest) {
+          return res.status(400).json({ message: "You already have a pending or processed request" });
+        }
+
+        // Create a new teacher request
+        const newRequest = {
+          name,
+          email,
+          image,
+          title,
+          experience,
+          category,
+          status: "pending",
+          createdAt: new Date(),
+        };
+
+        const result = await teacherRequestsCollection.insertOne(newRequest);
+        res.status(201).json({ message: "Request submitted successfully", requestId: result.insertedId });
+      } catch (error) {
+        console.error("Error submitting teacher request:", error);
+        res.status(500).json({ message: "Failed to submit request. Please try again." });
+      }
+    });
+
+    // 2. Get Teacher Request Status for a User
+    app.get("/api/teacher-requests/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        // if (email !== req.decoded.email) {
+        //   return res.status(403).send({ message: "Forbidden request" });
+        // }
+
+        const request = await teacherRequestsCollection.findOne({ email });
+        if (!request) {
+          return res.status(404).json({ message: "No request found for this email" });
+        }
+
+        res.json(request);
+      } catch (error) {
+        console.error("Error fetching teacher request:", error);
+        res.status(500).json({ message: "Failed to fetch request. Please try again." });
+      }
+    });
+
+    // 3. Admin: Get All Teacher Requests
+    app.get("/api/teacher-requests", verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const requests = await teacherRequestsCollection.find().toArray();
+        res.json(requests);
+      } catch (error) {
+        console.error("Error fetching teacher requests:", error);
+        res.status(500).json({ message: "Failed to fetch teacher requests. Please try again." });
+      }
+    });
+
+    // 4. Admin: Approve Teacher Request
+    app.patch('/api/teacher-requests/approve/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        const teacher = await teacherRequestsCollection.findOne({ _id: new ObjectId(id) });
+        console.log(teacher);
+        const updateResult = await teacherRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'accepted' } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Request not found' });
+        }
+
+        const request = await teacherRequestsCollection.findOne({ _id: new ObjectId(id) });
+        await userCollection.updateOne(
+          { email: request.email },
+          { $set: { role: 'teacher' } }
+        );
+
+        res.json({ message: 'Request approved successfully' });
+      } catch (error) {
+        console.error('Error approving teacher request:', error);
+        res.status(500).json({ message: 'Failed to approve request. Please try again.' });
+      }
+    });
+    // 5. Admin: Reject Teacher Request
+    app.patch('/api/teacher-requests/reject/:id', verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateResult = await teacherRequestsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: 'rejected' } }
+        );
+
+        if (updateResult.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Request not found' });
+        }
+
+        res.json({ message: 'Request rejected successfully' });
+      } catch (error) {
+        console.error('Error rejecting teacher request:', error);
+        res.status(500).json({ message: 'Failed to reject request. Please try again.' });
+      }
+    });
+
+
+
+
+
+
+    // <-------------------------- see temp code -------------------------------->
+
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
   }
-  run().catch(console.dir);
-  
-  
-  app.get('/', (req, res) => {
-    res.send('Bistro Boss Server!');
-  });
-  
-  
-  app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  });
-  
+}
+run().catch(console.dir);
+
+
+app.get('/', (req, res) => {
+  res.send('Bistro Boss Server!');
+});
+
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
