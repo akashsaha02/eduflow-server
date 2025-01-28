@@ -437,25 +437,32 @@ async function run() {
     });
 
 
-    app.post('/api/feedback', async (req, res) => {
-      try {
-        const feedback = req.body;
-        await feedbackCollection.insertOne(feedback);
-        res.status(200).send({ message: 'Feedback submitted successfully!' });
-      } catch (error) {
-        res.status(500).send({ message: 'Failed to submit feedback.', error });
-      }
-    });
 
     app.get('/api/feedback', async (req, res) => {
       try {
-
-
-
-      } catch {
-
+        const feedbacks = await feedbackCollection.find().toArray();
+    
+        const enrichedFeedback = await Promise.all(
+          feedbacks.map(async (feedback) => {
+            const classData = await classesCollection.findOne({ _id: new ObjectId(feedback.classId )});
+            // console.log(classData)
+            return {
+              ...feedback,
+              classTitle: classData?.title || 'Unknown Class',
+              classImage: classData?.image || '',
+              classTeacher:classData?.name || ''
+            };
+          })
+        );
+    
+        res.json(enrichedFeedback);
+      } catch (error) {
+        console.error('Error fetching feedback:', error);
+        res.status(500).json({ message: 'Failed to fetch feedback.' });
       }
-    })
+    });
+    
+    
 
 
     // Statistics Section
