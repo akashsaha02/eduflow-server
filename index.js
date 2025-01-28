@@ -34,7 +34,7 @@ async function run() {
     const teacherRequestsCollection = database.collection("teacherRequests");
     const assignmentsCollection = database.collection("assignments");
     const paymentsCollection = database.collection("payments");
-    const feedbackCollection=database.collection('feedback')
+    const feedbackCollection = database.collection('feedback')
 
 
     // jwt api
@@ -175,7 +175,7 @@ async function run() {
 
     app.post('/payments', verifyToken, async (req, res) => {
       const payment = req.body;
-      const {classId}=req.body;
+      const { classId } = req.body;
       console.log(classId);
 
       const updatedClass = await classesCollection.updateOne(
@@ -184,7 +184,7 @@ async function run() {
       );
       // console.log(enrolled)
       const result = await paymentsCollection.insertOne(payment);
-      res.json({ result,updatedClass });
+      res.json({ result, updatedClass });
     });
 
     app.get('/payments/:email', verifyToken, async (req, res) => {
@@ -225,11 +225,11 @@ async function run() {
         const payments = await paymentsCollection.find({ email: userEmail }).toArray();
         const classIds = payments.map(payment => new ObjectId(payment.classId));
         const enrolledClasses = await classesCollection
-  .find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }) // Ensure classIds are converted to ObjectId
-  .toArray();
+          .find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }) // Ensure classIds are converted to ObjectId
+          .toArray();
 
-res.send(enrolledClasses);
-    
+        res.send(enrolledClasses);
+
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'An error occurred while fetching enrolled classes.', error });
@@ -237,7 +237,7 @@ res.send(enrolledClasses);
     });
 
 
-    
+
 
 
 
@@ -324,138 +324,142 @@ res.send(enrolledClasses);
     // Get Teacher
 
     // Route to fetch all teacher's classes
-// Route to fetch all teacher's classes
+    // Route to fetch all teacher's classes
 
 
-app.get('/api/classes/:id', async (req, res) => {
-  try {
-    const classId = req.params.id;
-    const classDetails = await classesCollection.findOne({ _id: new ObjectId(classId) });
+    app.get('/api/classes/:id', async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const classDetails = await classesCollection.findOne({ _id: new ObjectId(classId) });
 
-    if (!classDetails) {
-      return res.status(404).json({ message: 'Class not found' });
-    }
+        if (!classDetails) {
+          return res.status(404).json({ message: 'Class not found' });
+        }
 
-    res.json(classDetails);
-  } catch (error) {
-    console.error('Error fetching classes:', error);
-    res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
-  }
-});
-app.get('/api/teacher/classes', async (req, res) => {
-  try {
-    const { email } = req.query; // Get email from query parameters
-    
-    const classes = await classesCollection.find({ email: email}).toArray();
-    res.json(classes);
-  } catch (error) {
-    console.error('Error fetching classes:', error);
-    res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
-  }
-});
+        res.json(classDetails);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+        res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+      }
+    });
+    app.get('/api/teacher/classes', async (req, res) => {
+      try {
+        const { email } = req.query; // Get email from query parameters
 
-
-// Route to delete class
-app.delete('/api/classes/:id', async (req, res) => {
-  try {
-    const classId = req.params.id;
-    const deleteResult = await classesCollection.deleteOne({ _id: new ObjectId(classId) });
-
-    if (deleteResult.deletedCount === 0) {
-      return res.status(404).json({ message: 'Class not found' });
-    }
-
-    res.json({ message: 'Class deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting class:', error);
-    res.status(500).json({ message: 'Failed to delete class. Please try again.' });
-  }
-});
-
-app.put('/api/classes/:id', async (req, res) => {
-  const { id } = req.params;
-  const updatedData = { ...req.body }; // Clone the request body to avoid mutating it directly
-
-  try {
-    // Remove `_id` field from the update data to prevent issues
-    delete updatedData._id;
-
-    const result = await classesCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updatedData }
-    );
-
-    if (result.modifiedCount > 0) {
-      res.json({ message: 'Class updated successfully' });
-    } else {
-      res.status(404).json({ message: 'Class not found or no changes made' });
-    }
-  } catch (error) {
-    console.error('Error updating class:', error);
-    res.status(500).json({ message: 'Failed to update class. Please try again.' });
-  }
-});
+        const classes = await classesCollection.find({ email: email }).toArray();
+        res.json(classes);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+        res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+      }
+    });
 
 
-// assignments 
-// Create assignment
-app.post('/api/assignments', async (req, res) => {
-  try {
-    const assignment = req.body;
-    const result = await assignmentsCollection.insertOne(assignment);
-    res.json(result);
-  } catch (error) {
-    console.error('Error creating assignment:', error);
-    res.status(500).json({ message: 'Failed to create assignment.' });
-  }
-});
+    // Route to delete class
+    app.delete('/api/classes/:id', async (req, res) => {
+      try {
+        const classId = req.params.id;
+        const deleteResult = await classesCollection.deleteOne({ _id: new ObjectId(classId) });
 
-// Get assignments by class ID
-app.get('/api/assignments/:classId', async (req, res) => {
-  try {
-    const { classId } = req.params;
-    const assignments = await assignmentsCollection.find({ classId }).toArray();
-    res.json(assignments);
-  } catch (error) {
-    console.error('Error fetching assignments:', error);
-    res.status(500).json({ message: 'Failed to fetch assignments.' });
-  }
-});
+        if (deleteResult.deletedCount === 0) {
+          return res.status(404).json({ message: 'Class not found' });
+        }
+
+        res.json({ message: 'Class deleted successfully' });
+      } catch (error) {
+        console.error('Error deleting class:', error);
+        res.status(500).json({ message: 'Failed to delete class. Please try again.' });
+      }
+    });
+
+    app.put('/api/classes/:id', async (req, res) => {
+      const { id } = req.params;
+      const updatedData = { ...req.body }; // Clone the request body to avoid mutating it directly
+
+      try {
+        // Remove `_id` field from the update data to prevent issues
+        delete updatedData._id;
+
+        const result = await classesCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.json({ message: 'Class updated successfully' });
+        } else {
+          res.status(404).json({ message: 'Class not found or no changes made' });
+        }
+      } catch (error) {
+        console.error('Error updating class:', error);
+        res.status(500).json({ message: 'Failed to update class. Please try again.' });
+      }
+    });
 
 
-app.post('/api/submit-assignment', async (req, res) => {
-  try {
-    const { assignmentId } = req.body;
-    await assignmentsCollection.updateOne(
-      { _id: new ObjectId(assignmentId) },
-      { $inc: { submissionCount: 1 } }
-    );
-    res.status(200).send({ message: 'Assignment submitted successfully!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Failed to submit assignment.', error });
-  }
-});
+    // assignments 
+    // Create assignment
+    app.post('/api/assignments', async (req, res) => {
+      try {
+        const assignment = req.body;
+        const result = await assignmentsCollection.insertOne(assignment);
+        res.json(result);
+      } catch (error) {
+        console.error('Error creating assignment:', error);
+        res.status(500).json({ message: 'Failed to create assignment.' });
+      }
+    });
+
+    // Get assignments by class ID
+    app.get('/api/assignments/:classId', async (req, res) => {
+      try {
+        const { classId } = req.params;
+        const assignments = await assignmentsCollection.find({ classId }).toArray();
+        res.json(assignments);
+      } catch (error) {
+        console.error('Error fetching assignments:', error);
+        res.status(500).json({ message: 'Failed to fetch assignments.' });
+      }
+    });
 
 
-app.post('/api/feedback', async (req, res) => {
-  try {
-    const feedback = req.body;
-    await feedbackCollection.insertOne(feedback);
-    res.status(200).send({ message: 'Feedback submitted successfully!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Failed to submit feedback.', error });
-  }
-});
+    app.post('/api/submit-assignment', async (req, res) => {
+      try {
+        const { assignmentId } = req.body;
+        await assignmentsCollection.updateOne(
+          { _id: new ObjectId(assignmentId) },
+          { $inc: { submissionCount: 1 } }
+        );
+        res.status(200).send({ message: 'Assignment submitted successfully!' });
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to submit assignment.', error });
+      }
+    });
 
-app.get('/api/feedback',async (req,res)=>{
-  try{
 
-    
+    app.post('/api/feedback', async (req, res) => {
+      try {
+        const feedback = req.body;
+        await feedbackCollection.insertOne(feedback);
+        res.status(200).send({ message: 'Feedback submitted successfully!' });
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to submit feedback.', error });
+      }
+    });
 
-  }catch{
+    app.get('/api/feedback', async (req, res) => {
+      try {
 
-  }
-})
+
+
+      } catch {
+
+      }
+    })
+
+
+
+
 
 
 
