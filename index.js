@@ -437,6 +437,17 @@ async function run() {
     });
 
 
+    app.post('/api/feedback', async (req, res) => {
+      try {
+        const feedback = req.body;
+        await feedbackCollection.insertOne(feedback);
+        res.status(200).send({ message: 'Feedback submitted successfully!' });
+      } catch (error) {
+        res.status(500).send({ message: 'Failed to submit feedback.', error });
+      }
+    });
+
+
 
     app.get('/api/feedback', async (req, res) => {
       try {
