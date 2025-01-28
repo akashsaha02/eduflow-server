@@ -467,7 +467,8 @@ async function run() {
         const totalUsers = await userCollection.countDocuments();
     
         // Fetch total classes
-        const totalClasses = await classesCollection.countDocuments();
+        const totalClasses = await classesCollection.countDocuments({ status: 'approved' });
+
     
         // Fetch total enrollments (sum of all student enrollments in all classes)
         const totalEnrollmentsAggregation = await classesCollection.aggregate([
