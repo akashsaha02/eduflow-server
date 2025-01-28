@@ -463,23 +463,26 @@ async function run() {
     // Route to Get Statistics
     app.get('/api/statistics', async (req, res) => {
       try {
-        // Fetch total users
+        // Fetch total users (assuming you have a user collection)
         const totalUsers = await userCollection.countDocuments();
-
+    
         // Fetch total classes
         const totalClasses = await classesCollection.countDocuments();
-
-        // // Fetch total enrollments (sum of all student enrollments in all classes)
-        // const classes = await classesCollection.find({}, 'studentEnrollments');
-        const totalEnrollments = await classesCollection.aggregate([
+    
+        // Fetch total enrollments (sum of all student enrollments in all classes)
+        const totalEnrollmentsAggregation = await classesCollection.aggregate([
           {
             $group: {
               _id: null,
-              totalEnrollments: { $sum: '$totalEnrollments' },
+              totalEnrollments: { $sum: '$totalEnrollments' }, // Sum of 'totalEnrollments' field across all documents
             },
           },
-        ]);
-
+        ]).toArray(); // Convert the aggregation result to an array
+    
+        // Check if the result is not empty and get the total enrollments count
+        const totalEnrollments = totalEnrollmentsAggregation[0]?.totalEnrollments || 0;
+    
+        // Respond with the aggregated data
         res.json({
           totalUsers,
           totalClasses,
@@ -490,6 +493,7 @@ async function run() {
         res.status(500).json({ message: 'Internal server error' });
       }
     });
+    
 
 
 
