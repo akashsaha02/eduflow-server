@@ -458,7 +458,31 @@ async function run() {
     })
 
 
+    // Statistics Section
 
+    // Route to Get Statistics
+    app.get('/api/statistics', async (req, res) => {
+      try {
+        // Fetch total users
+        const totalUsers = await User.countDocuments();
+
+        // Fetch total classes
+        const totalClasses = await Class.countDocuments();
+
+        // Fetch total enrollments (sum of all student enrollments in all classes)
+        const classes = await Class.find({}, 'studentEnrollments');
+        const totalEnrollments = classes.reduce((sum, cls) => sum + cls.studentEnrollments.length, 0);
+
+        res.json({
+          totalUsers,
+          totalClasses,
+          totalEnrollments,
+        });
+      } catch (error) {
+        console.error('Error fetching statistics:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    });
 
 
 
