@@ -447,6 +447,16 @@ app.post('/api/feedback', async (req, res) => {
   }
 });
 
+app.get('/api/feedback',async (req,res)=>{
+  try{
+
+    
+
+  }catch{
+
+  }
+})
+
 
 
 
