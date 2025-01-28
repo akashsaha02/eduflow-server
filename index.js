@@ -34,6 +34,7 @@ async function run() {
     const teacherRequestsCollection = database.collection("teacherRequests");
     const assignmentsCollection = database.collection("assignments");
     const paymentsCollection = database.collection("payments");
+    const feedbackCollection=database.collection('feedback')
 
 
     // jwt api
@@ -418,6 +419,31 @@ app.get('/api/assignments/:classId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching assignments:', error);
     res.status(500).json({ message: 'Failed to fetch assignments.' });
+  }
+});
+
+
+app.post('/api/submit-assignment', async (req, res) => {
+  try {
+    const { assignmentId } = req.body;
+    await assignmentsCollection.updateOne(
+      { _id: new ObjectId(assignmentId) },
+      { $inc: { submissionCount: 1 } }
+    );
+    res.status(200).send({ message: 'Assignment submitted successfully!' });
+  } catch (error) {
+    res.status(500).send({ message: 'Failed to submit assignment.', error });
+  }
+});
+
+
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const feedback = req.body;
+    await feedbackCollection.insertOne(feedback);
+    res.status(200).send({ message: 'Feedback submitted successfully!' });
+  } catch (error) {
+    res.status(500).send({ message: 'Failed to submit feedback.', error });
   }
 });
 
