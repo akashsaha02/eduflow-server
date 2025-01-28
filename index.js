@@ -471,12 +471,19 @@ async function run() {
 
         // // Fetch total enrollments (sum of all student enrollments in all classes)
         // const classes = await classesCollection.find({}, 'studentEnrollments');
-        // const totalEnrollments = classes.reduce((sum, cls) => sum + cls.studentEnrollments.length, 0);
+        const totalEnrollments = await classesCollection.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalEnrollments: { $sum: '$totalEnrollments' },
+            },
+          },
+        ]);
 
         res.json({
           totalUsers,
           totalClasses,
-          // totalEnrollments,
+          totalEnrollments,
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
