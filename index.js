@@ -32,6 +32,7 @@ async function run() {
     const userCollection = database.collection("users");
     const classesCollection = database.collection('classes');
     const teacherRequestsCollection = database.collection("teacherRequests");
+    const assignmentsCollection = database.collection("assignments");
     const paymentsCollection = database.collection("payments");
 
 
@@ -148,7 +149,7 @@ async function run() {
 
     app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
-      console.log(price);
+      // console.log(price);
       // const amount = price * 100;
       // const amount = price * 100;
 
@@ -173,15 +174,16 @@ async function run() {
 
     app.post('/payments', verifyToken, async (req, res) => {
       const payment = req.body;
-      const result = await paymentsCollection.insertOne(payment);
+      const {classId}=req.body;
+      console.log(classId);
 
-      const query = {
-        _id: {
-          $in: payment.cartItemIds.map((id) => new ObjectId(id))
-        }
-      }
-      const deleteResult = await cartsCollection.deleteMany(query);
-      res.json({ result, deleteResult });
+      const updatedClass = await classesCollection.updateOne(
+        { _id: new ObjectId(classId) },
+        { $inc: { totalEnrollments: 1 } }
+      );
+      // console.log(enrolled)
+      const result = await paymentsCollection.insertOne(payment);
+      res.json({ result,updatedClass });
     });
 
     app.get('/payments/:email', verifyToken, async (req, res) => {
@@ -210,6 +212,31 @@ async function run() {
       const result = await paymentsCollection.updateOne(query, updateDoc);
       res.json(result);
     });
+
+
+
+
+    // My classes
+
+    app.get('/api/my-enrolled-classes/:userEmail', async (req, res) => {
+      try {
+        const userEmail = req.params.userEmail;
+        const payments = await paymentsCollection.find({ email: userEmail }).toArray();
+        const classIds = payments.map(payment => new ObjectId(payment.classId));
+        const enrolledClasses = await classesCollection
+  .find({ _id: { $in: classIds.map(id => new ObjectId(id)) } }) // Ensure classIds are converted to ObjectId
+  .toArray();
+
+res.send(enrolledClasses);
+    
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'An error occurred while fetching enrolled classes.', error });
+      }
+    });
+
+
+    
 
 
 
@@ -258,6 +285,19 @@ async function run() {
     });
 
     // Admin: Approve class
+    // Admin: Get all classes (pending, approved, rejected)
+    app.get('/api/admin/classes', verifyToken, verifyAdmin, async (req, res) => {
+      try {
+        const classes = await classesCollection.find().toArray();
+        // console.log(classes);
+        res.json(classes);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+        res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+      }
+    });
+
+    // Admin: Approve class
     app.patch('/api/classes/approve/:id', verifyToken, verifyAdmin, async (req, res) => {
       try {
         const classId = req.params.id;
@@ -276,6 +316,113 @@ async function run() {
         res.status(500).json({ message: 'Failed to approve class. Please try again.' });
       }
     });
+
+
+
+
+    // Get Teacher
+
+    // Route to fetch all teacher's classes
+// Route to fetch all teacher's classes
+
+
+app.get('/api/classes/:id', async (req, res) => {
+  try {
+    const classId = req.params.id;
+    const classDetails = await classesCollection.findOne({ _id: new ObjectId(classId) });
+
+    if (!classDetails) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    res.json(classDetails);
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+  }
+});
+app.get('/api/teacher/classes', async (req, res) => {
+  try {
+    const { email } = req.query; // Get email from query parameters
+    
+    const classes = await classesCollection.find({ email: email}).toArray();
+    res.json(classes);
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ message: 'Failed to fetch classes. Please try again.' });
+  }
+});
+
+
+// Route to delete class
+app.delete('/api/classes/:id', async (req, res) => {
+  try {
+    const classId = req.params.id;
+    const deleteResult = await classesCollection.deleteOne({ _id: new ObjectId(classId) });
+
+    if (deleteResult.deletedCount === 0) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    res.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting class:', error);
+    res.status(500).json({ message: 'Failed to delete class. Please try again.' });
+  }
+});
+
+app.put('/api/classes/:id', async (req, res) => {
+  const { id } = req.params;
+  const updatedData = { ...req.body }; // Clone the request body to avoid mutating it directly
+
+  try {
+    // Remove `_id` field from the update data to prevent issues
+    delete updatedData._id;
+
+    const result = await classesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedData }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.json({ message: 'Class updated successfully' });
+    } else {
+      res.status(404).json({ message: 'Class not found or no changes made' });
+    }
+  } catch (error) {
+    console.error('Error updating class:', error);
+    res.status(500).json({ message: 'Failed to update class. Please try again.' });
+  }
+});
+
+
+// assignments 
+// Create assignment
+app.post('/api/assignments', async (req, res) => {
+  try {
+    const assignment = req.body;
+    const result = await assignmentsCollection.insertOne(assignment);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating assignment:', error);
+    res.status(500).json({ message: 'Failed to create assignment.' });
+  }
+});
+
+// Get assignments by class ID
+app.get('/api/assignments/:classId', async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const assignments = await assignmentsCollection.find({ classId }).toArray();
+    res.json(assignments);
+  } catch (error) {
+    console.error('Error fetching assignments:', error);
+    res.status(500).json({ message: 'Failed to fetch assignments.' });
+  }
+});
+
+
+
 
 
 
@@ -355,7 +502,7 @@ async function run() {
         const id = req.params.id;
 
         const teacher = await teacherRequestsCollection.findOne({ _id: new ObjectId(id) });
-        console.log(teacher);
+        // console.log(teacher);
         const updateResult = await teacherRequestsCollection.updateOne(
           { _id: new ObjectId(id) },
           { $set: { status: 'accepted' } }
@@ -413,7 +560,7 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-  res.send('Bistro Boss Server!');
+  res.send(' Server!');
 });
 
 
