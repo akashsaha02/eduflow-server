@@ -464,19 +464,19 @@ async function run() {
     app.get('/api/statistics', async (req, res) => {
       try {
         // Fetch total users
-        const totalUsers = await User.countDocuments();
+        const totalUsers = await userCollection.countDocuments();
 
         // Fetch total classes
-        const totalClasses = await Class.countDocuments();
+        const totalClasses = await classesCollection.countDocuments();
 
-        // Fetch total enrollments (sum of all student enrollments in all classes)
-        const classes = await Class.find({}, 'studentEnrollments');
-        const totalEnrollments = classes.reduce((sum, cls) => sum + cls.studentEnrollments.length, 0);
+        // // Fetch total enrollments (sum of all student enrollments in all classes)
+        // const classes = await classesCollection.find({}, 'studentEnrollments');
+        // const totalEnrollments = classes.reduce((sum, cls) => sum + cls.studentEnrollments.length, 0);
 
         res.json({
           totalUsers,
           totalClasses,
-          totalEnrollments,
+          // totalEnrollments,
         });
       } catch (error) {
         console.error('Error fetching statistics:', error);
